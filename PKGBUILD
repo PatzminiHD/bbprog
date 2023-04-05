@@ -9,6 +9,7 @@ license=('GPL3')
 depends=(
     "icu"
     "zlib"
+    "rsync"
 )
 makedepends=(
     "git"
