@@ -9,12 +9,11 @@ namespace bbprog
         private static string rsyncArgs = "-azrt --info=progress2";
         public static void Main(string[] args)
         {
-            List<(string name, string source, string destination, bool delete)> backupEntries;
             if (args.Length < 1)
             {
                 Exit("Not enough arguments specified");
             }
-            backupEntries = ReadFile(args[0]);
+            List<(string name, string source, string destination, bool delete)> backupEntries = ReadFile(args[0]);
             foreach (var backupEntry in backupEntries)
             {
                 WriteLine($"{backupEntry.name}:{backupEntry.source} {backupEntry.destination}; {backupEntry.delete}");
@@ -24,7 +23,6 @@ namespace bbprog
         }
         private static void RunRsync(List<(string name, string source, string destination, bool delete)> backupEntries)
         {
-            System.Diagnostics.Process rsync;
             System.Diagnostics.ProcessStartInfo procStartInfo = new();
             procStartInfo.UseShellExecute = false;
             procStartInfo.RedirectStandardOutput = true;
@@ -36,7 +34,8 @@ namespace bbprog
                     procStartInfo.Arguments = $"{rsyncArgs} {backupEntries[i].source} {backupEntries[i].destination} --delete";
                 else
                     procStartInfo.Arguments = $"{rsyncArgs} {backupEntries[i].source} {backupEntries[i].destination}";
-                rsync = new();
+                
+                System.Diagnostics.Process rsync = new();
                 rsync.StartInfo = procStartInfo;
                 rsync.Start();
                 
