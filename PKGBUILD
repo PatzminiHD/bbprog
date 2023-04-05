@@ -24,15 +24,14 @@ sha512sums=("SKIP")
 build() {
   cd "bbprog"
 
-  MSBUILDDISABLENODEREUSE=1 dotnet publish --self-contained --runtime linux-x64 --output ../$pkgname
+  MSBUILDDISABLENODEREUSE=1 dotnet publish --self-contained --runtime linux-x64 --output ../$pkgname.tmp
 }
 
 package() {
   install -d $pkgdir/opt/
   install -d $pkgdir/usr/bin/
 
-  cp -r $pkgname "$pkgdir/opt/$pkgname/"
-  mv "$pkgdir/opt/$pkgname/bbprog" "$pkgdir/opt/$pkgname/$pkgname"
+  cp -r $pkgname.tmp "$pkgdir/opt/$pkgname/"
   rm "$pkgdir/opt/$pkgname/bbprog.pdb"
   ln -s "/opt/$pkgname/$pkgname" "$pkgdir/usr/bin/$pkgname"
 }
