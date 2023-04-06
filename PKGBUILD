@@ -1,6 +1,6 @@
 # Maintainer: PatzminiHD  <youremail@domain.com>
 pkgname=bbprog
-pkgver=0.1.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="BadBackupProgram. Backup a List of locations using rsync"
 arch=('x86_64')
