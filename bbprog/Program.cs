@@ -42,6 +42,11 @@ namespace bbprog
                 StreamPipe pout = new StreamPipe(rsync.StandardOutput.BaseStream, Console.OpenStandardOutput());
                 pout.Connect();
                 rsync.WaitForExit();
+                if (rsync.ExitCode != 0)
+                {
+                    ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"ERROR backing up {backupEntries[i].name}. See previous errors");
+                }
             }
             WriteLine("Backups Finished!");
         }
