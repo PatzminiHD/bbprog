@@ -7,15 +7,32 @@ namespace bbprog
     static class Program
     {
         private static string rsyncArgs = "-azrt --info=progress2";
+        private static readonly string Version = "1.1.0";
         public static void Main(string[] args)
         {
             if (args.Length < 1)
             {
                 Exit("Not enough arguments specified");
             }
+
+            if (args[0] == "--help" || args[0] == "-h")
+            {
+                ShowHelpAndExit();
+            }
             List<(string name, string source, string destination, bool delete)> backupEntries = ReadFile(args[0]);
             WriteLine($"Found {backupEntries.Count} entries for backup");
             RunRsync(backupEntries);
+        }
+
+        private static void ShowHelpAndExit()
+        {
+            WriteLine($"bbrog version {Version} by PatzminiHD\n");
+            WriteLine("Usage: bbprog [options] <file>");
+            WriteLine("Options:");
+            WriteLine("-h, --help  Show this help page and exit\n");
+            WriteLine("Under normal circumstances bbprog is only run using 'bbprog /path/to/config/file'");
+            WriteLine("An example config file can be found on https://github.com/PatzminiHD/bbprog/blob/master/bbprog/ExampleConfig.txt");
+            Environment.Exit(0);
         }
         private static void RunRsync(List<(string name, string source, string destination, bool delete)> backupEntries)
         {

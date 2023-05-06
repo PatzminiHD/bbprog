@@ -1,0 +1,16 @@
+# All lines that do not start with quotation marks are ignored
+# The file extension does not matter
+
+# Example for a backup entry:
+"Name of Entry (Shown in the program)" "/path/to/folder/or/file/you/want/to/backup/" "/path/to/folder/you/want/to/backup/to/" "delete"
+
+# Each entry is on its own line, and consists of either 3 or 4 strings,
+# encapsulated in quotation marks, seperated by 1 space
+# The last part ('"delete"') is either there or not, it tells the program
+# to delete files that are in the destination folder
+# But not in the source folder. (It sets the '--delete' flag in rsync)
+
+# As the '"delete"' is optional, these would both be valid Entries:
+
+"Name of other Entry" "/other/path/to/source" "/other/other/path/to/destination" "delete"
+"Name of other Entry" "/other/path/to/source" "/other/other/path/to/destination"
