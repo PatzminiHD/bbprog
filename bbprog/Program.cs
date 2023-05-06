@@ -14,10 +14,6 @@ namespace bbprog
                 Exit("Not enough arguments specified");
             }
             List<(string name, string source, string destination, bool delete)> backupEntries = ReadFile(args[0]);
-            foreach (var backupEntry in backupEntries)
-            {
-                WriteLine($"{backupEntry.name}:{backupEntry.source} {backupEntry.destination}; {backupEntry.delete}");
-            }
             WriteLine($"Found {backupEntries.Count} entries for backup");
             RunRsync(backupEntries);
         }
