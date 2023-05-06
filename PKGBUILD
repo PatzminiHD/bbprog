@@ -1,8 +1,9 @@
-# Maintainer: PatzminiHD  <youremail@domain.com>
-pkgname=bbprog
+# Maintainer: PatzminiHD <7.0@gmx.at>
+pkgname=bbprog-git
+_pkgname=${pkgname%-git}
 pkgver=1.1.1
-pkgrel=1
-pkgdesc="BadBackupProgram. Backup a List of locations using rsync"
+pkgrel=2
+pkgdesc="Backup a List of locations using rsync"
 arch=('x86_64')
 url="https://github.com/PatzminiHD/bbprog"
 license=('GPL3')
@@ -17,7 +18,6 @@ makedepends=(
     "dotnet-sdk-6.0"
 )
 options=("staticlibs" "!strip")
-# source=("${url}/releases/download/v${pkgver}/bsprog_${pkgver}_x86_64.tar.gz")
 source=("git+${url}.git")
 sha512sums=("SKIP")
 
@@ -33,5 +33,5 @@ package() {
 
   cp -r $pkgname.tmp "$pkgdir/opt/$pkgname/"
   rm "$pkgdir/opt/$pkgname/bbprog.pdb"
-  ln -s "/opt/$pkgname/$pkgname" "$pkgdir/usr/bin/$pkgname"
+  ln -s "/opt/$pkgname/$pkgname" "$pkgdir/usr/bin/$_pkgname"
 }
