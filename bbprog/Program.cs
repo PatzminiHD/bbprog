@@ -7,7 +7,7 @@ namespace bbprog
     static class Program
     {
         private static string rsyncArgs = "-azrt --info=progress2";
-        private static readonly string Version = "1.1.0";
+        private static readonly string Version = "1.1.1";
         public static void Main(string[] args)
         {
             if (args.Length < 1)
@@ -59,6 +59,7 @@ namespace bbprog
                 {
                     ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"ERROR backing up {backupEntries[i].name}. See previous errors");
+                    ResetColor();
                 }
             }
             WriteLine("Backups Finished!");
