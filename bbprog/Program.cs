@@ -1,13 +1,19 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Security.Authentication;
 using static System.Console;
 
 namespace bbprog
 {
     static class Program
     {
-        private static string rsyncArgs = "-azrt --info=progress2";
-        private static readonly string Version = "1.1.1";
+     
+        private static readonly string rsyncArgs = "-azrt --info=progress2";
+        private const string Version = "2.0.0";
+
+        private const string RsyncIdentifierLine = "[rsync]";
+        private const string BorgIdentifierLine = "[borg]";
+        
         public static void Main(string[] args)
         {
             if (args.Length < 1)
@@ -19,9 +25,25 @@ namespace bbprog
             {
                 ShowHelpAndExit();
             }
-            List<(string name, string source, string destination, bool delete)> backupEntries = ReadFile(args[0]);
-            WriteLine($"Found {backupEntries.Count} entries for backup");
-            RunRsync(backupEntries);
+            var backupEntries = ReadFile(args[0]);
+            
+            WriteLine($"Found {backupEntries.rsyncBackupList.Count} entries for rsync backup");
+            WriteLine($"Found {backupEntries.borgBackupList.Count} entries for borg backup");
+
+            Stopwatch sw_all = new();
+            Stopwatch sw_rsync = new();
+            Stopwatch sw_borg = new();
+            sw_all.Start();
+            sw_rsync.Start();
+            RsyncInterface.RunBackup(backupEntries.rsyncBackupList, rsyncArgs);
+            sw_rsync.Stop();
+            WriteLine($"Rsync backups finished!");
+            sw_borg.Start();
+            BorgInterface.RunBackup(backupEntries.borgBackupList);
+            WriteLine("Borg backups finished!");
+            WriteLine($"\nRsync backups took {sw_rsync.Elapsed}");
+            WriteLine($"Borg backups took  {sw_borg.Elapsed}");
+            WriteLine($"All backups took   {sw_all.Elapsed}");
         }
 
         private static void ShowHelpAndExit()
@@ -34,39 +56,12 @@ namespace bbprog
             WriteLine("An example config file can be found on https://github.com/PatzminiHD/bbprog/blob/master/bbprog/ExampleConfig.txt");
             Environment.Exit(0);
         }
-        private static void RunRsync(List<(string name, string source, string destination, bool delete)> backupEntries)
+        private static (List<RsyncBackupEntry> rsyncBackupList, List<BorgBackupEntry> borgBackupList) ReadFile(string filePath)
         {
-            System.Diagnostics.ProcessStartInfo procStartInfo = new();
-            procStartInfo.UseShellExecute = false;
-            procStartInfo.RedirectStandardOutput = true;
-            procStartInfo.FileName = "rsync";
-            for (int i = 0; i < backupEntries.Count; i++)
-            {
-                WriteLine($"Backing up: {backupEntries[i].name}");
-                if(backupEntries[i].delete)
-                    procStartInfo.Arguments = $"{rsyncArgs} {backupEntries[i].source} {backupEntries[i].destination} --delete";
-                else
-                    procStartInfo.Arguments = $"{rsyncArgs} {backupEntries[i].source} {backupEntries[i].destination}";
-                
-                System.Diagnostics.Process rsync = new();
-                rsync.StartInfo = procStartInfo;
-                rsync.Start();
-                
-                StreamPipe pout = new StreamPipe(rsync.StandardOutput.BaseStream, Console.OpenStandardOutput());
-                pout.Connect();
-                rsync.WaitForExit();
-                if (rsync.ExitCode != 0)
-                {
-                    ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"ERROR backing up {backupEntries[i].name}. See previous errors");
-                    ResetColor();
-                }
-            }
-            WriteLine("Backups Finished!");
-        }
-        private static List<(string name, string source, string destination, bool delete)> ReadFile(string filePath)
-        {
-            List<(string name, string source, string destination, bool delete)> pathsList = new();
+            List<RsyncBackupEntry>? rsyncBackupList = new();
+            List<BorgBackupEntry>? borgBackupList = new();
+            string identifier = "";
+            
             string[] fileLines = Array.Empty<string>();
             try
             {
@@ -84,8 +79,22 @@ namespace bbprog
 
             for (int i = 0; i < fileLines.Length; i++)
             {
-                if (!fileLines[i].StartsWith('"'))
+                if (identifier == null)
                     continue;
+                
+                switch(fileLines[i].Trim())
+                {
+                    case RsyncIdentifierLine:
+                        identifier = RsyncIdentifierLine;
+                        continue;
+                    case BorgIdentifierLine:
+                        identifier = BorgIdentifierLine;
+                        continue;
+                }
+                
+                if(!fileLines[i].StartsWith('"'))
+                    continue;
+                
                 List<string> split = new();
                 string name, source, destination;
                 bool delete = false;
@@ -106,20 +115,46 @@ namespace bbprog
                     }
                     argLength++;
                 }
-                if(split.Count != 4 && split.Count != 3)
-                    Exit($"File line {i + 1} does not have the right number of arguments");
 
-                name = split[0];
-                source = split[1];
-                destination = split[2];
+                if (identifier == RsyncIdentifierLine)
+                {
+                    if(split.Count != 4 && split.Count != 3)
+                        Exit($"File line {i + 1} does not have the right number of arguments");
+
+                    name = split[0];
+                    source = split[1];
+                    destination = split[2];
                 
-                if(split.Count == 4)
-                    if (split[3].ToLower() == "delete")
-                        delete = true;
-                    
-                pathsList.Add((name, source, destination, delete));
+                    if(split.Count == 4)
+                        if (split[3].ToLower() == "delete")
+                            delete = true;
+                
+                    rsyncBackupList.Add(new RsyncBackupEntry(name, source, destination, delete));
+                }
+                else if (identifier == BorgIdentifierLine)
+                {
+                    string compression, encryption, pruning;
+                    //Name
+                    //Destination (Repo path)
+                    //Source
+                    //Compression
+                    //Encryption
+                    //Pruning
+                    if(split.Count != 6)
+                        Exit($"File line {i + 1} does not have the right number of arguments");
+
+                    name = split[0];
+                    source = split[1];
+                    destination = split[2];
+                    compression = split[3];
+                    encryption = split[4];
+                    pruning = split[5];
+
+                    borgBackupList.Add(new BorgBackupEntry(name, source, destination, compression, encryption, pruning));
+                }
+                
             }
-            return pathsList;
+            return (rsyncBackupList, borgBackupList);
         }
 
         private static void Exit(string exitMessage)
