@@ -9,7 +9,7 @@ namespace bbprog
     {
      
         private static readonly string rsyncArgs = "-azrt --info=progress2";
-        private const string Version = "2.0.0";
+        private const string Version = "2.1.0";
 
         private const string RsyncIdentifierLine = "[rsync]";
         private const string BorgIdentifierLine = "[borg]";
@@ -35,11 +35,11 @@ namespace bbprog
             Stopwatch sw_borg = new();
             sw_all.Start();
             sw_rsync.Start();
-            RsyncInterface.RunBackup(backupEntries.rsyncBackupList, rsyncArgs);
+            RsyncInterface.RunBackup(backupEntries.rsyncBackupList, rsyncArgs,  backupEntries.maxThreadsRsync);
             sw_rsync.Stop();
             WriteLine($"Rsync backups finished!");
             sw_borg.Start();
-            BorgInterface.RunBackup(backupEntries.borgBackupList);
+            BorgInterface.RunBackup(backupEntries.borgBackupList, backupEntries.maxThreadsBorg);
             WriteLine("Borg backups finished!");
             WriteLine($"\nRsync backups took {sw_rsync.Elapsed}");
             WriteLine($"Borg backups took  {sw_borg.Elapsed}");
@@ -56,11 +56,13 @@ namespace bbprog
             WriteLine("An example config file can be found on https://github.com/PatzminiHD/bbprog/blob/master/bbprog/ExampleConfig.txt");
             Environment.Exit(0);
         }
-        private static (List<RsyncBackupEntry> rsyncBackupList, List<BorgBackupEntry> borgBackupList) ReadFile(string filePath)
+        private static (List<RsyncBackupEntry> rsyncBackupList, int maxThreadsRsync, List<BorgBackupEntry> borgBackupList, int maxThreadsBorg) ReadFile(string filePath)
         {
             List<RsyncBackupEntry>? rsyncBackupList = new();
             List<BorgBackupEntry>? borgBackupList = new();
             string identifier = "";
+
+            int maxThreadsRsync = 1, maxThreadsBorg = 1;
             
             string[] fileLines = Array.Empty<string>();
             try
@@ -79,18 +81,53 @@ namespace bbprog
 
             for (int i = 0; i < fileLines.Length; i++)
             {
-                if (identifier == null)
-                    continue;
-                
-                switch(fileLines[i].Trim())
+                if (fileLines[i].Trim().StartsWith(RsyncIdentifierLine))
                 {
-                    case RsyncIdentifierLine:
-                        identifier = RsyncIdentifierLine;
-                        continue;
-                    case BorgIdentifierLine:
-                        identifier = BorgIdentifierLine;
-                        continue;
+                    identifier = RsyncIdentifierLine;
+                    if (fileLines[i].Trim().Substring(RsyncIdentifierLine.Length).StartsWith('['))
+                    {
+                        string lineSubstring = fileLines[i].Trim().Substring(RsyncIdentifierLine.Length);
+                        if(!lineSubstring.StartsWith('[') || !lineSubstring.EndsWith(']'))
+                            continue;
+                            
+                        if (int.TryParse(lineSubstring.Substring(1, lineSubstring.Length - 2), out maxThreadsRsync))
+                        {
+                            if (maxThreadsRsync < 1)
+                            {
+                                ForegroundColor = ConsoleColor.Red;
+                                WriteLine("Max number of threads for rsync is less then 1!");
+                                ResetColor();
+                                Environment.Exit(2);
+                            }
+                        }
+                    }
+                    continue;
                 }
+                if (fileLines[i].Trim().StartsWith(BorgIdentifierLine))
+                {
+                    identifier = BorgIdentifierLine;
+                    if (fileLines[i].Trim().Substring(BorgIdentifierLine.Length).StartsWith('['))
+                    {
+                        string lineSubstring = fileLines[i].Trim().Substring(BorgIdentifierLine.Length);
+                        if(!lineSubstring.StartsWith('[') || !lineSubstring.EndsWith(']'))
+                            continue;
+                            
+                        if (int.TryParse(lineSubstring.Substring(1, lineSubstring.Length - 2), out maxThreadsBorg))
+                        {
+                            if (maxThreadsBorg < 1)
+                            {
+                                ForegroundColor = ConsoleColor.Red;
+                                WriteLine("Max number of threads for borg is less then 1!");
+                                ResetColor();
+                                Environment.Exit(2);
+                            }
+                        }
+                    }
+                    continue;
+                }
+                
+                if (identifier == "")
+                    continue;
                 
                 if(!fileLines[i].StartsWith('"'))
                     continue;
@@ -135,8 +172,8 @@ namespace bbprog
                 {
                     string compression, encryption, pruning;
                     //Name
-                    //Destination (Repo path)
                     //Source
+                    //Destination (Repo path)
                     //Compression
                     //Encryption
                     //Pruning
@@ -154,7 +191,7 @@ namespace bbprog
                 }
                 
             }
-            return (rsyncBackupList, borgBackupList);
+            return (rsyncBackupList, maxThreadsRsync, borgBackupList, maxThreadsBorg);
         }
 
         private static void Exit(string exitMessage)

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using static System.Console;
 
 
@@ -5,34 +6,53 @@ namespace bbprog;
 
 public class RsyncInterface
 {
-    public static void RunBackup(List<RsyncBackupEntry> backupEntries, string rsyncArgs)
+    public static void RunBackup(List<RsyncBackupEntry> backupEntries, string rsyncArgs, int maxThreads)
     {
-        System.Diagnostics.ProcessStartInfo procStartInfo = new();
-        procStartInfo.UseShellExecute = false;
-        procStartInfo.RedirectStandardOutput = true;
-        procStartInfo.FileName = "rsync";
+        ProcessStartInfo procStartInfo = new()
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            FileName = "rsync"
+        };
+        List<Process> rsyncProcesses = new List<Process>();
+
         for (int i = 0; i < backupEntries.Count; i++)
         {
-            WriteLine($"Backing up: {backupEntries[i].Name}");
             if(backupEntries[i].Delete)
                 procStartInfo.Arguments = $"{rsyncArgs} {backupEntries[i].Source} {backupEntries[i].Destination} --delete";
             else
                 procStartInfo.Arguments = $"{rsyncArgs} {backupEntries[i].Source} {backupEntries[i].Destination}";
-                
-            System.Diagnostics.Process rsync = new();
-            rsync.StartInfo = procStartInfo;
-            rsync.Start();
-                
-            StreamPipe pout = new StreamPipe(rsync.StandardOutput.BaseStream, Console.OpenStandardOutput());
+            
+            Process rsync = new();
+            rsync.StartInfo = new ProcessStartInfo()
+            {
+                UseShellExecute = procStartInfo.UseShellExecute,
+                RedirectStandardOutput = procStartInfo.RedirectStandardOutput,
+                FileName = procStartInfo.FileName,
+                Arguments = procStartInfo.Arguments,
+            };
+            rsyncProcesses.Add(rsync);
+        }
+
+        var parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = maxThreads
+        };
+
+        Parallel.ForEach(rsyncProcesses, parallelOptions, (n) =>
+        {
+            WriteLine($"\nBacking up: {backupEntries[rsyncProcesses.IndexOf(n)].Name}");
+            n.Start();
+            StreamPipe pout = new StreamPipe(n.StandardOutput.BaseStream, Console.OpenStandardOutput());
             pout.Connect();
-            rsync.WaitForExit();
-            if (rsync.ExitCode != 0)
+            n.WaitForExit();
+            if (n.ExitCode != 0)
             {
                 ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"ERROR backing up {backupEntries[i].Name}. See previous errors");
+                WriteLine($"\nERROR backing up {backupEntries[rsyncProcesses.IndexOf(n)].Name}. See previous errors\n");
                 ResetColor();
             }
-        }
+        });
     }
 }
 
